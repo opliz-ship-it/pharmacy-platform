@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShieldCheck, AlertTriangle, X, Activity, Info, Pill, Stethoscope, Microscope, CheckCircle } from 'lucide-react';
+import { Search, ShieldCheck, AlertTriangle, X, Activity, Info, Pill, Stethoscope, Microscope, CheckCircle, Globe } from 'lucide-react';
 import { SafetyReport } from '@/lib/types';
 
 // Extended Medicine type with image_url
@@ -17,6 +17,59 @@ interface DBMedicine {
   image_url?: string;
 }
 
+type Language = 'ar' | 'en';
+
+const translations = {
+  ar: {
+    appTitle: 'فارما',
+    appTitleSuffix: 'توين',
+    searchPlaceholder: 'ابحث عن دواء...',
+    heroBadge: 'تحليل صيدلاني مدعوم بالذكاء الاصطناعي',
+    heroTitle: 'صيدلية المستقبل',
+    heroTitleSuffix: 'بين يديك',
+    heroDesc: 'قاعدة بيانات عالمية للمستحضرات الصيدلانية. تحقق فوري من السلامة الدوائية استناداً إلى توأبك الرقمي.',
+    loadingErrorHeader: 'خطأ في النظام',
+    price: 'السعر',
+    details: 'التفاصيل',
+    dosage: 'الجرعة / الشكل الصيدلاني',
+    contraindications: 'موانع الاستعمال المعروفة',
+    noneListed: 'لا توجد موانع معروفة.',
+    smartAnalysisTitle: 'التحليل الطبي الذكي',
+    smartAnalysisDesc: 'تحقق فوري من سلامة الدواء وملاءمته لملفك الصحي (الحساسية والأمراض المزمنة).',
+    checkSafetyBtn: 'افحص السلامة بالذكاء الاصطناعي',
+    scanning: 'جاري فحص البيانات البيولوجية...',
+    safeTitle: 'آمن للاستخدام',
+    safeDesc: 'لم يتم العثور على تعارضات مع ملفك الصحي.',
+    dangerTitle: 'تحذير طبي عالي الخطورة',
+    dangerDesc: 'تم اكتشاف تعارضات صحية محتملة بناءً على ملفك الطبي.',
+    currency: '$', // Keeping currency symbol neutral or localized if needed
+  },
+  en: {
+    appTitle: 'Pharma',
+    appTitleSuffix: 'Twin',
+    searchPlaceholder: 'Search for medicines...',
+    heroBadge: 'AI-Powered Pharmaceutical Analysis',
+    heroTitle: 'Future Pharmacy',
+    heroTitleSuffix: 'In Your Hands',
+    heroDesc: 'Global pharmaceutical database. Instant safety verification based on your digital twin.',
+    loadingErrorHeader: 'System Error',
+    price: 'Price',
+    details: 'Details',
+    dosage: 'Dosage / Form',
+    contraindications: 'Known Contraindications',
+    noneListed: 'None listed.',
+    smartAnalysisTitle: 'Smart Medical Analysis',
+    smartAnalysisDesc: 'Instant safety and compatibility check against your health profile (Allergies & Chronic Conditions).',
+    checkSafetyBtn: 'Check Safety with AI',
+    scanning: 'Scanning Bio-Data Profile...',
+    safeTitle: 'Safe to Administer',
+    safeDesc: 'No conflicts found with your health profile.',
+    dangerTitle: 'High Risk Medical Warning',
+    dangerDesc: 'Potential health conflicts detected based on your medical profile.',
+    currency: '$',
+  }
+};
+
 export default function Home() {
   const [medicines, setMedicines] = useState<DBMedicine[]>([]);
   const [filteredMedicines, setFilteredMedicines] = useState<DBMedicine[]>([]);
@@ -24,10 +77,32 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Language State
+  const [lang, setLang] = useState<Language>('ar');
+  const t = translations[lang];
+
   // Modal State
   const [selectedMedicine, setSelectedMedicine] = useState<DBMedicine | null>(null);
   const [checkingSafety, setCheckingSafety] = useState(false);
   const [safetyResult, setSafetyResult] = useState<SafetyReport | null>(null);
+
+  // Load language preference
+  useEffect(() => {
+    const savedLang = localStorage.getItem('pharma-lang') as Language;
+    if (savedLang) {
+      setLang(savedLang);
+    }
+  }, []);
+
+  // Update Direction and Font based on Language
+  useEffect(() => {
+    // Update HTML/Body attributes
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+    // NOTE: In a real app we might toggle classes on body, but here we can rely on the main div font class
+    localStorage.setItem('pharma-lang', lang);
+  }, [lang]);
 
   useEffect(() => {
     fetchMedicines();
@@ -41,6 +116,10 @@ export default function Home() {
     );
     setFilteredMedicines(filtered);
   }, [searchQuery, medicines]);
+
+  const toggleLanguage = () => {
+    setLang(prev => prev === 'ar' ? 'en' : 'ar');
+  };
 
   const fetchMedicines = async () => {
     try {
@@ -81,8 +160,8 @@ export default function Home() {
 
       // Mock User Profile for strict checking
       const mockUserProfile = {
-        conditions: ['Diabetes', 'Hypertension', 'Asthma'], // Arabic mapping: السكري, ارتفاع ضغط الدم, الربو
-        allergies: ['Penicillin', 'Sulfa'] // Arabic mapping: البنسلين, السلفا
+        conditions: ['Diabetes', 'Hypertension', 'Asthma'],
+        allergies: ['Penicillin', 'Sulfa']
       };
 
       const warnings: string[] = [];
@@ -94,29 +173,37 @@ export default function Home() {
       // Check for Allergy: Penicillin
       if (mockUserProfile.allergies.includes('Penicillin') &&
         (ingredients.includes('penicillin') || ingredients.includes('amoxicillin'))) {
-        warnings.push('تحذير: يحتوي هذا الدواء على مشتقات البنسلين التي تعاني من حساسية تجاهها.');
+        warnings.push(lang === 'ar'
+          ? 'تحذير: يحتوي هذا الدواء على مشتقات البنسلين التي تعاني من حساسية تجاهها.'
+          : 'Warning: This medicine contains Penicillin derivatives which you are allergic to.');
         isSafe = false;
       }
 
       // Check for Chronic Conditions
-      // 1. Hypertension (Avoid NSAIDs sometimes, or decongestants)
+      // 1. Hypertension
       if (mockUserProfile.conditions.includes('Hypertension')) {
         if (ingredients.includes('ibuprofen') || ingredients.includes('pseudoephedrine')) {
-          warnings.push('تنبيه: قد لا يكون مناسباً لمرضى ارتفاع ضغط الدم.');
+          warnings.push(lang === 'ar'
+            ? 'تنبيه: قد لا يكون مناسباً لمرضى ارتفاع ضغط الدم.'
+            : 'Caution: May not be suitable for patients with hypertension.');
           isSafe = false;
         }
       }
 
-      // 2. Diabetes (Avoid Sugar syrups - assumed generic warning for liquid forms or specific drugs)
+      // 2. Diabetes
       if (mockUserProfile.conditions.includes('Diabetes') && selectedMedicine.dosage.includes('Syrup')) {
-        warnings.push('تنبيه: الشراب قد يحتوي على السكر، يرجى الحذر لمرضى السكري.');
+        warnings.push(lang === 'ar'
+          ? 'تنبيه: الشراب قد يحتوي على السكر، يرجى الحذر لمرضى السكري.'
+          : 'Caution: Syrup may contain sugar, please be careful if diabetic.');
         isSafe = true; // Warning only
       }
 
-      // 3. Asthma (Avoid Aspirin/NSAIDs)
+      // 3. Asthma
       if (mockUserProfile.conditions.includes('Asthma')) {
         if (ingredients.includes('aspirin') || ingredients.includes('ibuprofen') || ingredients.includes('diclofenac')) {
-          warnings.push('خطر: قد يسبب نوبات ربو لدى المصابين بالربو.');
+          warnings.push(lang === 'ar'
+            ? 'خطر: قد يسبب نوبات ربو لدى المصابين بالربو.'
+            : 'Danger: May induce asthma attacks in asthmatic patients.');
           isSafe = false;
         }
       }
@@ -127,16 +214,19 @@ export default function Home() {
       // Generic Pressure Check
       if (contraText.includes('pressure') || contraText.includes('ضغط')) {
         if (mockUserProfile.conditions.includes('Hypertension')) {
-          warnings.push('موانع الاستعمال: مذكور صراحة أنه يمنع لمرضى الضغط.');
+          warnings.push(lang === 'ar'
+            ? 'موانع الاستعمال: مذكور صراحة أنه يمنع لمرضى الضغط.'
+            : 'Contraindication: Explicitly stated as contraindicated for hypertension patients.');
           isSafe = false;
         }
       }
 
       // Specific Logic as requested: check for "High blood pressure" explicitly in contraindications
-      // Logic: if (user.chronic_diseases.includes('Hypertension') && medicine.contraindications.includes('High blood pressure'))
       if (mockUserProfile.conditions.includes('Hypertension') &&
         (contraText.includes('high blood pressure') || contraText.includes('ارتفاع ضغط الدم'))) {
-        warnings.push("تحذير: هذا الدواء قد لا يناسب مرضى الضغط، يرجى استشارة الصيدلي.");
+        warnings.push(lang === 'ar'
+          ? "تحذير: هذا الدواء قد لا يناسب مرضى الضغط، يرجى استشارة الصيدلي."
+          : "Warning: This medicine might not be suitable for high blood pressure patients, please consult a pharmacist.");
         isSafe = false;
       }
 
@@ -156,7 +246,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-white selection:bg-medical-teal/30 font-sans" dir="rtl">
+    <div className={`min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-white selection:bg-medical-teal/30 ${lang === 'ar' ? 'font-[family-name:var(--font-tajawal)]' : 'font-[family-name:var(--font-inter)]'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
       {/* Navbar */}
       <nav className="sticky top-0 z-40 w-full border-b border-white/5 bg-slate-950/80 backdrop-blur-md">
@@ -166,19 +256,29 @@ export default function Home() {
               <Activity className="w-6 h-6" />
             </div>
             <span className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-l from-white to-slate-400">
-              فارما<span className="text-medical-teal">توين</span>
+              {t.appTitle}<span className="text-medical-teal">{t.appTitleSuffix}</span>
             </span>
           </div>
+
           <div className="hidden md:flex items-center gap-6">
+            {/* Language Switcher */}
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/50 border border-slate-700 text-slate-300 hover:text-white hover:border-medical-teal/50 transition-all text-sm font-medium"
+            >
+              <Globe className="w-4 h-4" />
+              {lang === 'ar' ? 'English' : 'العربية'}
+            </button>
+
             <div className="relative group">
               <input
                 type="text"
-                placeholder="ابحث عن دواء..."
+                placeholder={t.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-10 pl-4 py-2 bg-slate-900/50 border border-slate-700 rounded-full w-64 focus:w-80 transition-all focus:outline-none focus:border-medical-teal focus:ring-1 focus:ring-medical-teal/50 text-sm text-right"
+                className={`px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-full w-64 focus:w-80 transition-all focus:outline-none focus:border-medical-teal focus:ring-1 focus:ring-medical-teal/50 text-sm ${lang === 'ar' ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'}`}
               />
-              <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-400 group-focus-within:text-medical-teal transition-colors" />
+              <Search className={`absolute top-2.5 w-4 h-4 text-slate-400 group-focus-within:text-medical-teal transition-colors ${lang === 'ar' ? 'right-3' : 'left-3'}`} />
             </div>
           </div>
         </div>
@@ -196,17 +296,16 @@ export default function Home() {
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-medical-teal text-xs font-bold mb-6">
               <Microscope className="w-3 h-3" />
-              تحليل صيدلاني مدعوم بالذكاء الاصطناعي
+              {t.heroBadge}
             </div>
             <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight leading-tight">
-              صيدلية المستقبل <br />
+              {t.heroTitle} <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-l from-teal-400 to-emerald-500">
-                بين يديك
+                {t.heroTitleSuffix}
               </span>
             </h1>
             <p className="text-lg text-slate-400 leading-relaxed max-w-2xl mx-auto">
-              قاعدة بيانات عالمية للمستحضرات الصيدلانية.
-              تحقق فوري من السلامة الدوائية استناداً إلى توأبك الرقمي.
+              {t.heroDesc}
             </p>
           </motion.div>
         </div>
@@ -221,7 +320,7 @@ export default function Home() {
         ) : error ? (
           <div className="text-center p-12 rounded-3xl bg-rose-500/10 border border-rose-500/20">
             <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-rose-400 mb-2">خطأ في النظام</h3>
+            <h3 className="text-xl font-bold text-rose-400 mb-2">{t.loadingErrorHeader}</h3>
             <p className="text-slate-400">{error}</p>
           </div>
         ) : (
@@ -247,22 +346,22 @@ export default function Home() {
                         <Pill className="w-8 h-8 text-medical-teal/50" />
                       )}
                     </div>
-                    <span className="px-3 py-1 rounded-full bg-slate-950/50 border border-white/10 text-emerald-400 font-mono font-bold dir-ltr">
-                      ${med.price}
+                    <span className="px-3 py-1 rounded-full bg-slate-950/50 border border-white/10 text-emerald-400 font-mono font-bold" dir="ltr">
+                      {t.currency}{med.price}
                     </span>
                   </div>
 
-                  <h3 className="text-2xl font-bold mb-2 group-hover:text-medical-teal transition-colors text-right">
+                  <h3 className={`text-2xl font-bold mb-2 group-hover:text-medical-teal transition-colors ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
                     {med.trade_name}
                   </h3>
-                  <p className="text-slate-400 text-sm mb-4 line-clamp-2 text-right">
+                  <p className={`text-slate-400 text-sm mb-4 line-clamp-2 ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
                     {med.active_ingredient}
                   </p>
 
                   <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-xs text-slate-500 font-semibold">
                     <span>{med.dosage}</span>
-                    <span className="group-hover:-translate-x-1 transition-transform flex items-center gap-1">
-                      التفاصيل &larr;
+                    <span className={`group-hover:${lang === 'ar' ? '-' : ''}translate-x-1 transition-transform flex items-center gap-1`}>
+                      {t.details} {lang === 'ar' ? <>&larr;</> : <>&rarr;</>}
                     </span>
                   </div>
                 </div>
@@ -288,11 +387,11 @@ export default function Home() {
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                className="bg-slate-900 w-full max-w-2xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden pointer-events-auto relative text-right"
+                className={`bg-slate-900 w-full max-w-2xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden pointer-events-auto relative ${lang === 'ar' ? 'text-right' : 'text-left'}`}
               >
                 {/* Modal Header */}
-                <div className="relative h-48 bg-gradient-to-l from-teal-900/40 to-slate-900 flex flex-col justify-end p-8">
-                  <div className="absolute top-4 left-4">
+                <div className={`relative h-48 bg-gradient-to-l from-teal-900/40 to-slate-900 flex flex-col justify-end p-8`}>
+                  <div className={`absolute top-4 ${lang === 'ar' ? 'left-4' : 'right-4'}`}>
                     <button onClick={closeModal} className="p-2 rounded-full bg-black/20 hover:bg-white/10 text-white transition-colors">
                       <X className="w-5 h-5" />
                     </button>
@@ -309,17 +408,17 @@ export default function Home() {
                 <div className="p-8">
                   <div className="grid grid-cols-2 gap-8 mb-8 border-b border-white/5 pb-8">
                     <div>
-                      <h4 className="text-xs text-slate-500 font-bold mb-2">الجرعة / الشكل الصيدلاني</h4>
+                      <h4 className="text-xs text-slate-500 font-bold mb-2">{t.dosage}</h4>
                       <p className="text-slate-200 text-lg">{selectedMedicine.dosage}</p>
                     </div>
                     <div>
-                      <h4 className="text-xs text-slate-500 font-bold mb-2">السعر</h4>
-                      <p className="text-emerald-400 text-lg font-mono" dir="ltr">${selectedMedicine.price}</p>
+                      <h4 className="text-xs text-slate-500 font-bold mb-2">{t.price}</h4>
+                      <p className="text-emerald-400 text-lg font-mono" dir="ltr">{t.currency}{selectedMedicine.price}</p>
                     </div>
                     <div className="col-span-2">
-                      <h4 className="text-xs text-slate-500 font-bold mb-2">موانع الاستعمال المعروفة</h4>
+                      <h4 className="text-xs text-slate-500 font-bold mb-2">{t.contraindications}</h4>
                       <p className="text-slate-300 leading-relaxed bg-slate-950/50 p-4 rounded-xl border border-white/5 text-sm">
-                        {selectedMedicine.contraindications || "لا توجد موانع معروفة."}
+                        {selectedMedicine.contraindications || t.noneListed}
                       </p>
                     </div>
                   </div>
@@ -329,16 +428,16 @@ export default function Home() {
                     {!safetyResult && !checkingSafety && (
                       <div className="flex flex-col items-center justify-center text-center py-2">
                         <Stethoscope className="w-10 h-10 text-slate-600 mb-3" />
-                        <h3 className="text-xl font-bold mb-2">التحليل الطبي الذكي</h3>
+                        <h3 className="text-xl font-bold mb-2">{t.smartAnalysisTitle}</h3>
                         <p className="text-slate-400 mb-6 max-w-md text-sm">
-                          تحقق فوري من سلامة الدواء وملاءمته لملفك الصحي (الحساسية والأمراض المزمنة).
+                          {t.smartAnalysisDesc}
                         </p>
                         <button
                           onClick={handleCheckSafety}
                           className="px-8 py-3 bg-medical-teal hover:bg-teal-500 text-white rounded-xl font-bold shadow-lg shadow-teal-500/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
                         >
                           <ShieldCheck className="w-5 h-5" />
-                          افحص السلامة بالذكاء الاصطناعي
+                          {t.checkSafetyBtn}
                         </button>
                       </div>
                     )}
@@ -346,7 +445,7 @@ export default function Home() {
                     {checkingSafety && (
                       <div className="flex flex-col items-center justify-center py-8">
                         <div className="w-12 h-12 border-4 border-medical-teal/30 border-t-medical-teal rounded-full animate-spin mb-4" />
-                        <p className="text-medical-teal font-medium animate-pulse">جاري فحص البيانات البيولوجية...</p>
+                        <p className="text-medical-teal font-medium animate-pulse">{t.scanning}</p>
                       </div>
                     )}
 
@@ -369,12 +468,12 @@ export default function Home() {
 
                           <div className="flex-1">
                             <h3 className={`text-xl font-bold mb-1 ${safetyResult.isSafe ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {safetyResult.isSafe ? 'آمن للاستخدام' : 'تحذير طبي عالي الخطورة'}
+                              {safetyResult.isSafe ? t.safeTitle : t.dangerTitle}
                             </h3>
                             <p className="text-slate-300 text-sm mb-4">
                               {safetyResult.isSafe
-                                ? "لم يتم العثور على تعارضات مع ملفك الصحي."
-                                : "تم اكتشاف تعارضات صحية محتملة بناءً على ملفك الطبي."
+                                ? t.safeDesc
+                                : t.dangerDesc
                               }
                             </p>
 
@@ -402,8 +501,8 @@ export default function Home() {
 
       {/* Decorative Background */}
       <div className="fixed inset-0 pointer-events-none z-[-1]">
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-teal-500/5 blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-600/5 blur-[150px]" />
+        <div className={`absolute top-[-10%] ${lang === 'ar' ? 'right-[-10%]' : 'left-[-10%]'} w-[500px] h-[500px] rounded-full bg-teal-500/5 blur-[120px]`} />
+        <div className={`absolute bottom-[-10%] ${lang === 'ar' ? 'left-[-10%]' : 'right-[-10%]'} w-[600px] h-[600px] rounded-full bg-indigo-600/5 blur-[150px]`} />
       </div>
 
     </div>
