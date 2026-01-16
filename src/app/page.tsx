@@ -123,11 +123,21 @@ export default function Home() {
 
       // Check strict contraindications text from DB
       const contraText = selectedMedicine.contraindications ? selectedMedicine.contraindications.toLowerCase() : '';
+
+      // Generic Pressure Check
       if (contraText.includes('pressure') || contraText.includes('ضغط')) {
         if (mockUserProfile.conditions.includes('Hypertension')) {
           warnings.push('موانع الاستعمال: مذكور صراحة أنه يمنع لمرضى الضغط.');
           isSafe = false;
         }
+      }
+
+      // Specific Logic as requested: check for "High blood pressure" explicitly in contraindications
+      // Logic: if (user.chronic_diseases.includes('Hypertension') && medicine.contraindications.includes('High blood pressure'))
+      if (mockUserProfile.conditions.includes('Hypertension') &&
+        (contraText.includes('high blood pressure') || contraText.includes('ارتفاع ضغط الدم'))) {
+        warnings.push("تحذير: هذا الدواء قد لا يناسب مرضى الضغط، يرجى استشارة الصيدلي.");
+        isSafe = false;
       }
 
       setSafetyResult({
