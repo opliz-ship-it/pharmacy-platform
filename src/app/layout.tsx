@@ -14,8 +14,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PharmaTwin AI",
-  description: "AI Powered Pharmacy Platform",
+  title: "Opliz AI Pharmacy",
+  description: "AI Powered Pharmacy Platform - Opliz",
 };
 
 export default function RootLayout({

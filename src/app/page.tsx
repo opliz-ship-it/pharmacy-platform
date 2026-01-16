@@ -6,11 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ShieldCheck, AlertTriangle, X, Activity, Info, Pill, Stethoscope, Microscope, CheckCircle, Globe } from 'lucide-react';
 import { SafetyReport } from '@/lib/types';
 
-// Extended Medicine type with image_url
+// Extended Medicine type with bilingual support
 interface DBMedicine {
   id: number;
-  trade_name: string;
-  active_ingredient: string;
+  trade_name: string; // Defaults to English or Primary Name
+  trade_name_ar?: string; // Arabic Name
+  active_ingredient: string; // English
+  active_ingredient_ar?: string; // Arabic
   dosage: string;
   contraindications: string;
   price: number;
@@ -21,11 +23,11 @@ type Language = 'ar' | 'en';
 
 const translations = {
   ar: {
-    appTitle: 'فارما',
-    appTitleSuffix: 'توين',
+    appTitle: 'أوبليز',
+    appTitleSuffix: 'الذكية',
     searchPlaceholder: 'ابحث عن دواء...',
     heroBadge: 'تحليل صيدلاني مدعوم بالذكاء الاصطناعي',
-    heroTitle: 'صيدلية المستقبل',
+    heroTitle: 'صيدلية أوبليز',
     heroTitleSuffix: 'بين يديك',
     heroDesc: 'قاعدة بيانات عالمية للمستحضرات الصيدلانية. تحقق فوري من السلامة الدوائية استناداً إلى توأبك الرقمي.',
     loadingErrorHeader: 'خطأ في النظام',
@@ -42,14 +44,14 @@ const translations = {
     safeDesc: 'لم يتم العثور على تعارضات مع ملفك الصحي.',
     dangerTitle: 'تحذير طبي عالي الخطورة',
     dangerDesc: 'تم اكتشاف تعارضات صحية محتملة بناءً على ملفك الطبي.',
-    currency: '$', // Keeping currency symbol neutral or localized if needed
+    currency: '$',
   },
   en: {
-    appTitle: 'Pharma',
-    appTitleSuffix: 'Twin',
+    appTitle: 'Opliz',
+    appTitleSuffix: 'AI',
     searchPlaceholder: 'Search for medicines...',
     heroBadge: 'AI-Powered Pharmaceutical Analysis',
-    heroTitle: 'Future Pharmacy',
+    heroTitle: 'Opliz Pharmacy',
     heroTitleSuffix: 'In Your Hands',
     heroDesc: 'Global pharmaceutical database. Instant safety verification based on your digital twin.',
     loadingErrorHeader: 'System Error',
@@ -110,10 +112,19 @@ export default function Home() {
 
   useEffect(() => {
     const query = searchQuery.toLowerCase();
-    const filtered = medicines.filter(med =>
-      med.trade_name.toLowerCase().includes(query) ||
-      med.active_ingredient.toLowerCase().includes(query)
-    );
+    const filtered = medicines.filter(med => {
+      // Bilingual Search Logic
+      const tradeName = (med.trade_name || '').toLowerCase();
+      // If trade_name_ar exists, verify against it; otherwise just use tradeName
+      const tradeNameAr = (med.trade_name_ar || '').toLowerCase();
+      const ingredient = (med.active_ingredient || '').toLowerCase();
+      const ingredientAr = (med.active_ingredient_ar || '').toLowerCase();
+
+      return tradeName.includes(query) ||
+        tradeNameAr.includes(query) ||
+        ingredient.includes(query) ||
+        ingredientAr.includes(query);
+    });
     setFilteredMedicines(filtered);
   }, [searchQuery, medicines]);
 
@@ -141,7 +152,7 @@ export default function Home() {
 
   const handleMedicineClick = (med: DBMedicine) => {
     setSelectedMedicine(med);
-    setSafetyResult(null); // Reset previous check
+    setSafetyResult(null);
   };
 
   const closeModal = () => {
@@ -167,10 +178,9 @@ export default function Home() {
       const warnings: string[] = [];
       let isSafe = true;
 
-      // Active Ingredient Analysis (Simple inclusions check)
+      // Logic uses English Active Ingredient as standard reference
       const ingredients = selectedMedicine.active_ingredient.toLowerCase();
 
-      // Check for Allergy: Penicillin
       if (mockUserProfile.allergies.includes('Penicillin') &&
         (ingredients.includes('penicillin') || ingredients.includes('amoxicillin'))) {
         warnings.push(lang === 'ar'
@@ -245,6 +255,17 @@ export default function Home() {
     }
   };
 
+  // Helper to get localized field with fallback
+  const getLocalizedName = (med: DBMedicine) => {
+    if (lang === 'ar') return med.trade_name_ar || med.trade_name;
+    return med.trade_name;
+  };
+
+  const getLocalizedIngredient = (med: DBMedicine) => {
+    if (lang === 'ar') return med.active_ingredient_ar || med.active_ingredient;
+    return med.active_ingredient;
+  };
+
   return (
     <div className={`min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-white selection:bg-medical-teal/30 ${lang === 'ar' ? 'font-[family-name:var(--font-tajawal)]' : 'font-[family-name:var(--font-inter)]'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
@@ -261,7 +282,6 @@ export default function Home() {
           </div>
 
           <div className="hidden md:flex items-center gap-6">
-            {/* Language Switcher */}
             <button
               onClick={toggleLanguage}
               className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/50 border border-slate-700 text-slate-300 hover:text-white hover:border-medical-teal/50 transition-all text-sm font-medium"
@@ -310,7 +330,7 @@ export default function Home() {
           </motion.div>
         </div>
 
-        {/* Grid or Loading/Error */}
+        {/* Grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3, 4, 5, 6].map(i => (
@@ -334,35 +354,40 @@ export default function Home() {
                 onClick={() => handleMedicineClick(med)}
                 className="group relative cursor-pointer"
               >
-                {/* Card Background & Border */}
+                {/* Card Background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-800/40 to-slate-950/40 rounded-3xl backdrop-blur-xl border border-white/10 transition-all duration-300 group-hover:border-medical-teal/50 group-hover:shadow-[0_0_40px_-10px_rgba(20,184,166,0.3)]" />
 
-                <div className="relative p-6 h-full flex flex-col z-10">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden group-hover:scale-105 transition-transform shadow-inner">
-                      {med.image_url ? (
-                        <img src={med.image_url} alt={med.trade_name} className="w-full h-full object-cover" />
-                      ) : (
-                        <Pill className="w-8 h-8 text-medical-teal/50" />
-                      )}
+                {/* New Card Structure with Large Image */}
+                <div className="relative h-full flex flex-col z-10">
+                  {/* Image Section */}
+                  <img
+                    src={med.image_url || 'https://via.placeholder.com/300x200?text=No+Image'}
+                    alt={lang === 'ar' ? (med.trade_name_ar || med.trade_name) : med.trade_name}
+                    className="w-full h-48 object-contain bg-white/5 p-4 rounded-t-2xl border-b border-white/5"
+                    onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Medicine'; }}
+                  />
+
+                  {/* Content Section */}
+                  <div className="p-6 flex-1 flex flex-col">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className={`text-2xl font-bold group-hover:text-medical-teal transition-colors ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
+                        {getLocalizedName(med)}
+                      </h3>
+                      <span className="px-3 py-1 rounded-full bg-slate-950/50 border border-white/10 text-emerald-400 font-mono font-bold text-sm shrink-0" dir="ltr">
+                        {t.currency}{med.price}
+                      </span>
                     </div>
-                    <span className="px-3 py-1 rounded-full bg-slate-950/50 border border-white/10 text-emerald-400 font-mono font-bold" dir="ltr">
-                      {t.currency}{med.price}
-                    </span>
-                  </div>
 
-                  <h3 className={`text-2xl font-bold mb-2 group-hover:text-medical-teal transition-colors ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
-                    {med.trade_name}
-                  </h3>
-                  <p className={`text-slate-400 text-sm mb-4 line-clamp-2 ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
-                    {med.active_ingredient}
-                  </p>
+                    <p className={`text-slate-400 text-sm mb-4 line-clamp-2 ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
+                      {getLocalizedIngredient(med)}
+                    </p>
 
-                  <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-xs text-slate-500 font-semibold">
-                    <span>{med.dosage}</span>
-                    <span className={`group-hover:${lang === 'ar' ? '-' : ''}translate-x-1 transition-transform flex items-center gap-1`}>
-                      {t.details} {lang === 'ar' ? <>&larr;</> : <>&rarr;</>}
-                    </span>
+                    <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-xs text-slate-500 font-semibold">
+                      <span>{med.dosage}</span>
+                      <span className={`group-hover:${lang === 'ar' ? '-' : ''}translate-x-1 transition-transform flex items-center gap-1`}>
+                        {t.details} {lang === 'ar' ? <>&larr;</> : <>&rarr;</>}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -397,10 +422,10 @@ export default function Home() {
                     </button>
                   </div>
 
-                  <h2 className="text-4xl font-bold filter drop-shadow-lg mb-2">{selectedMedicine.trade_name}</h2>
+                  <h2 className="text-4xl font-bold filter drop-shadow-lg mb-2">{getLocalizedName(selectedMedicine)}</h2>
                   <p className="text-teal-200/80 font-medium flex items-center gap-2">
                     <Pill className="w-4 h-4" />
-                    {selectedMedicine.active_ingredient}
+                    {getLocalizedIngredient(selectedMedicine)}
                   </p>
                 </div>
 
