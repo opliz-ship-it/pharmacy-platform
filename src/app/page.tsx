@@ -113,6 +113,8 @@ const translations = {
   }
 };
 
+const GEMINI_API_KEY = 'AIzaSyD7-qHrVj2v9BuDcpoqI_gEgv4ut9j1HLY';
+
 export default function Home() {
   const [medicines, setMedicines] = useState<DBMedicine[]>([]);
   const [filteredMedicines, setFilteredMedicines] = useState<DBMedicine[]>([]);
@@ -137,6 +139,7 @@ export default function Home() {
   const [selectedMedicine, setSelectedMedicine] = useState<DBMedicine | null>(null);
   const [checkingSafety, setCheckingSafety] = useState(false);
   const [safetyResult, setSafetyResult] = useState<SafetyReport | null>(null);
+  const [isBotTyping, setIsBotTyping] = useState(false);
 
   // Helper Functions
   const getCategory = (med: DBMedicine) => {
@@ -176,7 +179,7 @@ export default function Home() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, chatOpen]);
+  }, [messages, chatOpen, isBotTyping]);
 
   useEffect(() => {
     fetchMedicines();
@@ -289,32 +292,51 @@ export default function Home() {
     setInteractionReport({ conflicts, hasConflict: conflicts.length > 0 });
   };
 
-  // Chatbot Logic
+  // --- Upgrade: Gemini AI Chatbot Logic ---
   const handleSendMessage = async () => {
     if (!inputMsg.trim()) return;
     const userText = inputMsg;
     setMessages(prev => [...prev, { text: userText, sender: 'user' }]);
     setInputMsg('');
+    setIsBotTyping(true);
 
-    setTimeout(() => {
-      let response = '';
-      const lowerText = userText.toLowerCase();
-      const foundMed = medicines.find(m =>
-        (m.name_en && lowerText.includes(m.name_en.toLowerCase())) ||
-        (m.name_ar && lowerText.includes(m.name_ar.toLowerCase()))
-      );
+    try {
+      // Prepare context from medicines
+      const medContext = medicines.map(m =>
+        `- ${m.name_en} (${m.name_ar}): Price ${m.price} EGP, Dosage: ${m.dosage}, Contraindications: ${m.contraindications}`
+      ).join('\n');
 
-      if (foundMed) {
-        const medName = lang === 'ar' ? (foundMed.name_ar || foundMed.name_en) : foundMed.name_en;
-        if (lowerText.includes('price') || lowerText.includes('سعر')) response = lang === 'ar' ? `${medName}: ${foundMed.price} ج.م` : `${medName}: ${foundMed.price} EGP`;
-        else if (lowerText.includes('dosage') || lowerText.includes('جرعة')) response = lang === 'ar' ? `الجرعة: ${foundMed.dosage}` : `Dosage: ${foundMed.dosage}`;
-        else response = lang === 'ar' ? `وجدت ${medName}.` : `Found ${medName}.`;
-      } else {
-        response = lang === 'ar' ? "عذراً، لم أجد الدواء." : "Sorry, I couldn't find that medicine.";
-      }
-      setMessages(prev => [...prev, { text: response, sender: 'bot' }]);
-    }, 600);
+      const systemPrompt = `
+            You are OplizBot, a helpful AI pharmacist assistant for Opliz Pharmacy.
+            Your current language is: ${lang === 'ar' ? 'Arabic' : 'English'}.
+            Answer the user's question based ONLY on the following available medicines list:\n\n${medContext}\n\n
+            If the user asks about a medicine not in this list, politely say you don't have information about it.
+            Always end your response with a safety disclaimer: "Please consult a doctor before taking any medication" (translated to Arabic if speaking Arabic).
+            Keep your answer concise and helpful.
+        `;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: systemPrompt + "\nUser Query: " + userText }]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const botReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || (lang === 'ar' ? "عذراً، حدث خطأ في النظام." : "Sorry, a system error occurred.");
+      setMessages(prev => [...prev, { text: botReply, sender: 'bot' }]);
+
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      setMessages(prev => [...prev, { text: lang === 'ar' ? "عذراً، لا يمكنني الاتصال بالخادم حالياً." : "Sorry, I cannot connect to the server right now.", sender: 'bot' }]);
+    } finally {
+      setIsBotTyping(false);
+    }
   };
+
 
   // Localization Helpers
   const getLocalizedName = (med: DBMedicine) => lang === 'ar' ? (med.name_ar || med.name_en) : med.name_en;
@@ -494,6 +516,7 @@ export default function Home() {
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((msg, i) => (<div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.sender === 'user' ? 'bg-medical-teal text-white rounded-br-none' : 'bg-slate-600 text-white rounded-bl-none'}`}>{msg.text}</div></div>))}
+                {isBotTyping && <div className="flex justify-start"><div className="bg-slate-500/20 p-2 rounded-xl text-xs animate-pulse">Typing...</div></div>}
                 <div ref={chatEndRef} />
               </div>
               <div className="p-4 border-t border-white/10 flex gap-2"><input type="text" value={inputMsg} onChange={(e) => setInputMsg(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t.chatPlaceholder} className="flex-1 px-4 py-2 rounded-full text-sm outline-none bg-slate-500/10" /><button onClick={handleSendMessage} className="p-2 rounded-full bg-medical-teal text-white"><Plus size={20} className="rotate-90" /></button></div>
