@@ -11,10 +11,10 @@ import { SafetyReport } from '@/lib/types';
 // Extended Medicine type with bilingual support
 interface DBMedicine {
   id: number;
-  trade_name: string; // Defaults to English or Primary Name
-  trade_name_ar?: string; // Arabic Name
-  active_ingredient: string; // English
-  active_ingredient_ar?: string; // Arabic
+  name_en: string;
+  name_ar: string;
+  active_ingredient_en: string;
+  active_ingredient_ar: string;
   dosage: string;
   contraindications: string;
   price: number;
@@ -116,15 +116,14 @@ export default function Home() {
     const query = searchQuery.toLowerCase();
     const filtered = medicines.filter(med => {
       // Bilingual Search Logic
-      const tradeName = (med.trade_name || '').toLowerCase();
-      // If trade_name_ar exists, verify against it; otherwise just use tradeName
-      const tradeNameAr = (med.trade_name_ar || '').toLowerCase();
-      const ingredient = (med.active_ingredient || '').toLowerCase();
+      const nameEn = (med.name_en || '').toLowerCase();
+      const nameAr = (med.name_ar || '').toLowerCase();
+      const ingredientEn = (med.active_ingredient_en || '').toLowerCase();
       const ingredientAr = (med.active_ingredient_ar || '').toLowerCase();
 
-      return tradeName.includes(query) ||
-        tradeNameAr.includes(query) ||
-        ingredient.includes(query) ||
+      return nameEn.includes(query) ||
+        nameAr.includes(query) ||
+        ingredientEn.includes(query) ||
         ingredientAr.includes(query);
     });
     setFilteredMedicines(filtered);
@@ -139,7 +138,8 @@ export default function Home() {
       setLoading(true);
       const { data, error } = await supabase
         .from('medicines')
-        .select('*');
+        .select('*')
+        .limit(10); // Limit to 10 items as requested
 
       if (error) throw error;
       setMedicines(data || []);
@@ -181,7 +181,7 @@ export default function Home() {
       let isSafe = true;
 
       // Logic uses English Active Ingredient as standard reference
-      const ingredients = selectedMedicine.active_ingredient.toLowerCase();
+      const ingredients = selectedMedicine.active_ingredient_en.toLowerCase();
 
       if (mockUserProfile.allergies.includes('Penicillin') &&
         (ingredients.includes('penicillin') || ingredients.includes('amoxicillin'))) {
@@ -259,13 +259,13 @@ export default function Home() {
 
   // Helper to get localized field with fallback
   const getLocalizedName = (med: DBMedicine) => {
-    if (lang === 'ar') return med.trade_name_ar || med.trade_name;
-    return med.trade_name;
+    if (lang === 'ar') return med.name_ar || med.name_en;
+    return med.name_en;
   };
 
   const getLocalizedIngredient = (med: DBMedicine) => {
-    if (lang === 'ar') return med.active_ingredient_ar || med.active_ingredient;
-    return med.active_ingredient;
+    if (lang === 'ar') return med.active_ingredient_ar || med.active_ingredient_en;
+    return med.active_ingredient_en;
   };
 
   return (
@@ -277,7 +277,7 @@ export default function Home() {
           <Link href="/" className="flex items-center gap-4 cursor-pointer hover:opacity-90 transition-opacity">
             <div className="relative w-10 h-10 shrink-0 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(20,184,166,0.5)] overflow-hidden bg-slate-900 border border-teal-500/30">
               <Image
-                src="/opli.png"
+                src="/logo.png"
                 alt="Opliz AI Logo"
                 width={40}
                 height={40}
@@ -371,7 +371,7 @@ export default function Home() {
                   {/* Image Section */}
                   <img
                     src={med.image_url || 'https://via.placeholder.com/300x200?text=No+Image'}
-                    alt={lang === 'ar' ? (med.trade_name_ar || med.trade_name) : med.trade_name}
+                    alt={lang === 'ar' ? (med.name_ar || med.name_en) : med.name_en}
                     className="w-full h-48 object-contain bg-white/5 p-4 rounded-t-2xl border-b border-white/5"
                     onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Medicine'; }}
                   />
