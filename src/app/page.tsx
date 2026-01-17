@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ShieldCheck, AlertTriangle, X, Activity, Info, Pill, Stethoscope, Microscope, CheckCircle, Globe } from 'lucide-react';
@@ -272,9 +273,16 @@ export default function Home() {
       {/* Navbar */}
       <nav className="sticky top-0 z-40 w-full border-b border-white/5 bg-slate-950/80 backdrop-blur-md">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/10 shadow-lg shadow-teal-500/10">
-              <img src="/logo.png" alt="Opliz Logo" className="w-full h-full object-contain p-1" />
+          <div className="flex items-center gap-4">
+            <div className="relative w-10 h-10 shrink-0 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(20,184,166,0.5)] overflow-hidden bg-slate-900 border border-teal-500/30">
+              <Image
+                src="/opli.png"
+                alt="Opliz AI Logo"
+                width={40}
+                height={40}
+                className="object-contain p-0.5"
+                priority
+              />
             </div>
             <span className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-l from-white to-slate-400">
               {t.appTitle}<span className="text-medical-teal">{t.appTitleSuffix}</span>
