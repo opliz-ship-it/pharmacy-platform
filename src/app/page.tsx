@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShieldCheck, AlertTriangle, X, Info, Pill, Stethoscope, Microscope, CheckCircle, Globe, ShoppingCart, MessageSquare, Plus, Trash2, Sun, Moon, Eye } from 'lucide-react';
+import { Search, ShieldCheck, AlertTriangle, X, Info, Pill, Stethoscope, Microscope, CheckCircle, Globe, ShoppingCart, MessageSquare, Plus, Trash2, Sun, Moon, Eye, Minus, CreditCard, ShoppingBag } from 'lucide-react';
 import { SafetyReport } from '@/lib/types';
 import clsx from 'clsx';
 
@@ -21,6 +21,11 @@ interface DBMedicine {
   price: number;
   image_url?: string;
   category?: string;
+}
+
+// Cart Item extends Medicine with Quantity
+interface CartItem extends DBMedicine {
+  quantity: number;
 }
 
 type Language = 'ar' | 'en';
@@ -49,21 +54,22 @@ const translations = {
     noneListed: 'لا توجد موانع معروفة.',
     smartAnalysisTitle: 'التحليل الطبي الذكي',
     smartAnalysisDesc: 'تحقق فوري من سلامة الدواء وملاءمته لملفك الصحي.',
-    checkSafetyBtn: 'افحص السلامة بالذكاء الاصطناعي',
-    scanning: 'جاري فحص البيانات البيولوجية...',
+    checkSafetyBtn: 'افحص السلامة',
+    scanning: 'جاري فحص البيانات...',
     safeTitle: 'آمن للاستخدام',
-    safeDesc: 'لم يتم العثور على تعارضات مع ملفك الصحي.',
-    dangerTitle: 'تحذير طبي عالي الخطورة',
-    dangerDesc: 'تم اكتشاف تعارضات صحية محتملة بناءً على ملفك الطبي.',
-    currency: '$',
+    safeDesc: 'لم يتم العثور على تعارضات.',
+    dangerTitle: 'تحذير عالي الخطورة',
+    dangerDesc: 'تم اكتشاف تعارضات صحية.',
+    currency: 'ج.م',
     addToCart: 'أضف للسلة',
-    cartTitle: 'سلة الأدوية',
-    cartEmpty: 'السلة فارغة',
-    cartInteractionWarning: 'تحذير: تم اكتشاف تعارض دوائي في السلة!',
-    checkInteractions: 'فحص التداخلات الدوائية',
+    cartTitle: 'سلة المشتريات',
+    cartEmpty: 'سلتك فارغة',
+    cartInteractionWarning: 'تحذير: تعارض دوائي محتمل!',
+    checkout: 'إتمام الطلب',
+    total: 'المجموع',
     clearCart: 'إفراغ السلة',
     chatPlaceholder: 'اسأل أوبليز بوت...',
-    chatWelcome: 'مرحباً! أنا أوبليز بوت. كيف يمكنني مساعدتك في أدويتك اليوم؟',
+    chatWelcome: 'مرحباً! أنا أوبليز بوت. كيف يمكنني مساعدتك؟',
     botName: 'أوبليز بوت',
     categories: 'التصنيفات',
     allCategories: 'الكل',
@@ -85,21 +91,22 @@ const translations = {
     noneListed: 'None listed.',
     smartAnalysisTitle: 'Smart Medical Analysis',
     smartAnalysisDesc: 'Instant safety and compatibility check against your health profile.',
-    checkSafetyBtn: 'Check Safety with AI',
-    scanning: 'Scanning Bio-Data Profile...',
+    checkSafetyBtn: 'Check Safety',
+    scanning: 'Scanning Bio-Data...',
     safeTitle: 'Safe to Administer',
-    safeDesc: 'No conflicts found with your health profile.',
-    dangerTitle: 'High Risk Medical Warning',
-    dangerDesc: 'Potential health conflicts detected based on your medical profile.',
-    currency: '$',
+    safeDesc: 'No conflicts found.',
+    dangerTitle: 'High Risk Warning',
+    dangerDesc: 'Potential health conflicts detected.',
+    currency: 'EGP',
     addToCart: 'Add to Cart',
-    cartTitle: 'Medicine Cart',
+    cartTitle: 'Shopping Cart',
     cartEmpty: 'Your cart is empty',
-    cartInteractionWarning: 'Warning: Drug Interaction Detected in Cart!',
-    checkInteractions: 'Check Interactions',
+    cartInteractionWarning: 'Warning: Potential Drug Interaction!',
+    checkout: 'Checkout',
+    total: 'Total',
     clearCart: 'Clear Cart',
     chatPlaceholder: 'Ask OplizBot...',
-    chatWelcome: 'Hello! I am OplizBot. How can I help you with your medicines today?',
+    chatWelcome: 'Hello! I am OplizBot. How can I help you?',
     botName: 'OplizBot',
     categories: 'Categories',
     allCategories: 'All',
@@ -114,7 +121,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   // States
-  const [cart, setCart] = useState<DBMedicine[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [interactionReport, setInteractionReport] = useState<InteractionReport | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -131,6 +138,7 @@ export default function Home() {
   const [checkingSafety, setCheckingSafety] = useState(false);
   const [safetyResult, setSafetyResult] = useState<SafetyReport | null>(null);
 
+  // Helper Functions
   const getCategory = (med: DBMedicine) => {
     const name = (med.name_en || '').toLowerCase();
     const ing = (med.active_ingredient_en || '').toLowerCase();
@@ -143,13 +151,12 @@ export default function Home() {
 
   const categories = ['All', 'Analgesics', 'Antibiotics', 'Vitamins', 'Cough & Cold', 'General'];
 
+  // Effects
   useEffect(() => {
     const savedLang = localStorage.getItem('pharma-lang') as Language;
     if (savedLang) setLang(savedLang);
-
     const savedTheme = localStorage.getItem('pharma-theme') as Theme;
     if (savedTheme) setTheme(savedTheme);
-    else setTheme('dark');
   }, []);
 
   useEffect(() => {
@@ -189,62 +196,74 @@ export default function Home() {
       const nameAr = (med.name_ar || '').toLowerCase();
       const ingredientEn = (med.active_ingredient_en || '').toLowerCase();
       const ingredientAr = (med.active_ingredient_ar || '').toLowerCase();
-
-      return (nameEn.includes(query) ||
-        nameAr.includes(query) ||
-        ingredientEn.includes(query) ||
-        ingredientAr.includes(query));
+      return (nameEn.includes(query) || nameAr.includes(query) || ingredientEn.includes(query) || ingredientAr.includes(query));
     });
 
     if (selectedCategory !== 'All') {
       filtered = filtered.filter(med => getCategory(med) === selectedCategory);
     }
-
     setFilteredMedicines(filtered);
   }, [searchQuery, medicines, selectedCategory]);
 
-  const toggleLanguage = () => {
-    setLang(prev => prev === 'ar' ? 'en' : 'ar');
-  };
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
+  const toggleLanguage = () => setLang(prev => prev === 'ar' ? 'en' : 'ar');
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   const fetchMedicines = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('medicines')
-        .select('*')
-        .limit(10);
-
+      const { data, error } = await supabase.from('medicines').select('*').limit(10);
       if (error) throw error;
       setMedicines(data || []);
       setFilteredMedicines(data || []);
     } catch (err: any) {
-      console.error('Error fetching medicines:', err);
+      console.error(err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // --- Upgrade: Advanced Cart Logic ---
+
   const addToCart = (med: DBMedicine) => {
-    const newCart = [...cart, med];
-    setCart(newCart);
-    checkInteractions(newCart);
+    setCart(prev => {
+      const existing = prev.find(item => item.id === med.id);
+      let newCart;
+      if (existing) {
+        newCart = prev.map(item => item.id === med.id ? { ...item, quantity: item.quantity + 1 } : item);
+      } else {
+        newCart = [...prev, { ...med, quantity: 1 }];
+      }
+      checkInteractions(newCart);
+      return newCart;
+    });
     setCartOpen(true);
   };
 
-  const removeFromCart = (index: number) => {
-    const newCart = [...cart];
-    newCart.splice(index, 1);
-    setCart(newCart);
-    checkInteractions(newCart);
+  const updateQuantity = (id: number, delta: number) => {
+    setCart(prev => {
+      const newCart = prev.map(item => {
+        if (item.id === id) {
+          return { ...item, quantity: Math.max(1, item.quantity + delta) };
+        }
+        return item;
+      });
+      checkInteractions(newCart);
+      return newCart;
+    });
   };
 
-  const checkInteractions = (currentCart: DBMedicine[]) => {
+  const removeFromCart = (id: number) => {
+    setCart(prev => {
+      const newCart = prev.filter(item => item.id !== id);
+      checkInteractions(newCart);
+      return newCart;
+    });
+  };
+
+  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+  const checkInteractions = (currentCart: CartItem[]) => {
     const ingredients = currentCart.map(m => (m.active_ingredient_en || '').toLowerCase());
     const conflicts: string[] = [];
     const uniqueIngredients = new Set(ingredients);
@@ -256,7 +275,6 @@ export default function Home() {
         if (seen.has(ing)) duplicates.add(ing);
         seen.add(ing);
       });
-
       duplicates.forEach(dup => {
         const conflictingMeds = currentCart.filter(m => (m.active_ingredient_en || '').toLowerCase() === dup);
         const medNames = conflictingMeds.map(m => lang === 'ar' ? (m.name_ar || m.name_en) : m.name_en).join(', ');
@@ -265,20 +283,15 @@ export default function Home() {
     }
 
     if (ingredients.some(i => i.includes('aspirin')) && ingredients.some(i => i.includes('ibuprofen'))) {
-      conflicts.push(lang === 'ar'
-        ? 'تفاعل خطير: الأسبرين والإيبوبروفين قد يسببان نزيفاً.'
-        : 'Major Interaction: Aspirin and Ibuprofen may increase bleeding risk.');
+      conflicts.push(lang === 'ar' ? 'تفاعل خطير: الأسبرين والإيبوبروفين.' : 'Major Interaction: Aspirin & Ibuprofen.');
     }
 
-    setInteractionReport({
-      conflicts,
-      hasConflict: conflicts.length > 0
-    });
+    setInteractionReport({ conflicts, hasConflict: conflicts.length > 0 });
   };
 
+  // Chatbot Logic
   const handleSendMessage = async () => {
     if (!inputMsg.trim()) return;
-
     const userText = inputMsg;
     setMessages(prev => [...prev, { text: userText, sender: 'user' }]);
     setInputMsg('');
@@ -286,7 +299,6 @@ export default function Home() {
     setTimeout(() => {
       let response = '';
       const lowerText = userText.toLowerCase();
-
       const foundMed = medicines.find(m =>
         (m.name_en && lowerText.includes(m.name_en.toLowerCase())) ||
         (m.name_ar && lowerText.includes(m.name_ar.toLowerCase()))
@@ -294,438 +306,229 @@ export default function Home() {
 
       if (foundMed) {
         const medName = lang === 'ar' ? (foundMed.name_ar || foundMed.name_en) : foundMed.name_en;
-        if (lowerText.includes('price') || lowerText.includes('cost') || lowerText.includes('سعر') || lowerText.includes('بكم')) {
-          response = lang === 'ar'
-            ? `سعر ${medName} هو ${foundMed.price}$`
-            : `The price of ${medName} is $${foundMed.price}`;
-        } else if (lowerText.includes('dosage') || lowerText.includes('dose') || lowerText.includes('جرعة')) {
-          response = lang === 'ar'
-            ? `الجرعة الموصى بها لـ ${medName}: ${foundMed.dosage}`
-            : `Recommended dosage for ${medName}: ${foundMed.dosage}`;
-        } else if (lowerText.includes('contra') || lowerText.includes('موانع')) {
-          response = lang === 'ar'
-            ? `موانع الاستعمال لـ ${medName}: ${foundMed.contraindications}`
-            : `Contraindications for ${medName}: ${foundMed.contraindications}`;
-        } else {
-          response = lang === 'ar'
-            ? `وجدت ${medName}. يمكنك سؤالي عن سعره، جرعته، أو موانع استعماله.`
-            : `I found ${medName}. You can ask about its price, dosage, or contraindications.`;
-        }
+        if (lowerText.includes('price') || lowerText.includes('سعر')) response = lang === 'ar' ? `${medName}: ${foundMed.price} ج.م` : `${medName}: ${foundMed.price} EGP`;
+        else if (lowerText.includes('dosage') || lowerText.includes('جرعة')) response = lang === 'ar' ? `الجرعة: ${foundMed.dosage}` : `Dosage: ${foundMed.dosage}`;
+        else response = lang === 'ar' ? `وجدت ${medName}.` : `Found ${medName}.`;
       } else {
-        response = lang === 'ar'
-          ? "عذراً، لم أفهم أو لم أجد الدواء المحدد. هل يمكنك إعادة الصياغة؟"
-          : "I'm sorry, I didn't understand or couldn't find that medicine. Could you rephrase?";
+        response = lang === 'ar' ? "عذراً، لم أجد الدواء." : "Sorry, I couldn't find that medicine.";
       }
-
       setMessages(prev => [...prev, { text: response, sender: 'bot' }]);
     }, 600);
   };
 
-  const handleMedicineClick = (med: DBMedicine) => {
-    setSelectedMedicine(med);
-    setSafetyResult(null);
-  };
+  // Localization Helpers
+  const getLocalizedName = (med: DBMedicine) => lang === 'ar' ? (med.name_ar || med.name_en) : med.name_en;
+  const getLocalizedIngredient = (med: DBMedicine) => lang === 'ar' ? (med.active_ingredient_ar || med.active_ingredient_en) : med.active_ingredient_en;
 
-  const closeModal = () => {
-    setSelectedMedicine(null);
-    setSafetyResult(null);
-  };
+  const handleMedicineClick = (med: DBMedicine) => { setSelectedMedicine(med); setSafetyResult(null); };
+  const closeModal = () => { setSelectedMedicine(null); setSafetyResult(null); };
 
   const handleCheckSafety = async () => {
     if (!selectedMedicine) return;
     setCheckingSafety(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-      const mockUserProfile = {
-        conditions: ['Diabetes', 'Hypertension', 'Asthma'],
-        allergies: ['Penicillin', 'Sulfa']
-      };
+      const mockUserProfile = { conditions: ['Diabetes', 'Hypertension'], allergies: ['Penicillin'] };
       const warnings: string[] = [];
       let isSafe = true;
-      const ingredients = (selectedMedicine.active_ingredient_en || '').toLowerCase();
+      const ing = (selectedMedicine.active_ingredient_en || '').toLowerCase();
 
-      if (mockUserProfile.allergies.includes('Penicillin') &&
-        (ingredients.includes('penicillin') || ingredients.includes('amoxicillin'))) {
-        warnings.push(lang === 'ar'
-          ? 'تحذير: يحتوي هذا الدواء على مشتقات البنسلين التي تعاني من حساسية تجاهها.'
-          : 'Warning: This medicine contains Penicillin derivatives which you are allergic to.');
+      if (mockUserProfile.allergies.includes('Penicillin') && (ing.includes('penicillin') || ing.includes('amoxicillin'))) {
+        warnings.push(lang === 'ar' ? 'حساسية البنسلين.' : 'Penicillin Allergy.');
         isSafe = false;
       }
-      if (mockUserProfile.conditions.includes('Hypertension')) {
-        if (ingredients.includes('ibuprofen') || ingredients.includes('pseudoephedrine')) {
-          warnings.push(lang === 'ar'
-            ? 'تنبيه: قد لا يكون مناسباً لمرضى ارتفاع ضغط الدم.'
-            : 'Caution: May not be suitable for patients with hypertension.');
-          isSafe = false;
-        }
-      }
-      const contraText = selectedMedicine.contraindications ? selectedMedicine.contraindications.toLowerCase() : '';
-      if (mockUserProfile.conditions.includes('Hypertension') &&
-        (contraText.includes('high blood pressure') || contraText.includes('ارتفاع ضغط الدم'))) {
-        warnings.push(lang === 'ar'
-          ? "تحذير: هذا الدواء قد لا يناسب مرضى الضغط، يرجى استشارة الصيدلي."
-          : "Warning: This medicine might not be suitable for high blood pressure patients, please consult a pharmacist.");
-        isSafe = false;
-      }
-      setSafetyResult({
-        isSafe,
-        warnings,
-        blockTransaction: !isSafe,
-        details: { allergyconflicts: [], contraindicationConflicts: [] },
-        timestamp: new Date().toISOString()
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCheckingSafety(false);
-    }
+      setSafetyResult({ isSafe, warnings, blockTransaction: !isSafe, details: { allergyconflicts: [], contraindicationConflicts: [] }, timestamp: new Date().toISOString() });
+    } catch { } finally { setCheckingSafety(false); }
   };
 
-  const getLocalizedName = (med: DBMedicine) => {
-    if (lang === 'ar') return med.name_ar || med.name_en;
-    return med.name_en;
-  };
-
-  const getLocalizedIngredient = (med: DBMedicine) => {
-    if (lang === 'ar') return med.active_ingredient_ar || med.active_ingredient_en;
-    return med.active_ingredient_en;
-  };
+  const PLACEHOLDER_IMG = 'https://via.placeholder.com/300x200?text=Opliz+Medicine';
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-white' : 'bg-slate-50 text-slate-900'} selection:bg-medical-teal/30 ${lang === 'ar' ? 'font-[family-name:var(--font-tajawal)]' : 'font-[family-name:var(--font-inter)]'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-white' : 'bg-slate-50 text-slate-900'} ${lang === 'ar' ? 'font-[family-name:var(--font-tajawal)]' : 'font-[family-name:var(--font-inter)]'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
-      {/* Navbar - Fixed & Aligned */}
-      <nav className={`sticky top-0 z-40 w-full border-b backdrop-blur-md transition-colors ${theme === 'dark' ? 'border-white/5 bg-slate-950/90' : 'border-slate-200 bg-white/90'}`}>
+      {/* Navbar */}
+      <nav className={`sticky top-0 z-40 w-full border-b backdrop-blur-md ${theme === 'dark' ? 'border-white/5 bg-slate-950/90' : 'border-slate-200 bg-white/90'}`}>
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-4 cursor-pointer hover:opacity-90 transition-opacity">
-              <div className={`relative w-10 h-10 shrink-0 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(20,184,166,0.5)] overflow-hidden border ${theme === 'dark' ? 'bg-slate-900 border-teal-500/30' : 'bg-white border-teal-500/20'}`}>
-                <Image
-                  src="/logo.png"
-                  alt="Opliz AI Logo"
-                  width={40}
-                  height={40}
-                  className="object-contain p-0.5"
-                  priority
-                />
+            <Link href="/" className="flex items-center gap-4">
+              <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border ${theme === 'dark' ? 'bg-slate-900 border-teal-500/30' : 'bg-white border-teal-500/20'}`}>
+                <Image src="/logo.png" alt="Opliz" width={40} height={40} className="object-contain p-0.5" />
               </div>
-              <span className={`text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-l ${theme === 'dark' ? 'from-white to-slate-400' : 'from-slate-900 to-slate-600'}`}>
+              <span className={`text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-l ${theme === 'dark' ? 'from-white to-slate-400' : 'from-slate-900 to-slate-600'}`}>
                 {t.appTitle}<span className="text-medical-teal">{t.appTitleSuffix}</span>
               </span>
             </Link>
-
-            <button onClick={toggleTheme} className={clsx("hidden md:flex p-2 rounded-full transition-colors", theme === 'dark' ? "bg-white/10 hover:bg-white/20 text-yellow-400" : "bg-slate-200 hover:bg-slate-300 text-slate-700")}>
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
+            <button onClick={toggleTheme} className={clsx("hidden md:flex p-2 rounded-full", theme === 'dark' ? "bg-white/10 text-yellow-400" : "bg-slate-200 text-slate-700")}>{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}</button>
           </div>
 
           <div className="flex items-center gap-4">
-            <button onClick={() => setCartOpen(true)} className="relative p-3 rounded-full hover:bg-slate-800/10 transition-colors">
-              <ShoppingCart className={clsx("w-6 h-6", theme === 'dark' ? "text-white" : "text-slate-900")} />
+            <button onClick={() => setCartOpen(true)} className="relative p-3 rounded-full hover:bg-slate-500/10">
+              <ShoppingCart className={theme === 'dark' ? "text-white" : "text-slate-900"} />
               {cart.length > 0 && <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-medical-teal text-white text-xs font-bold rounded-full">{cart.length}</span>}
               {interactionReport?.hasConflict && <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-rose-500 text-white text-xs font-bold rounded-full animate-ping" />}
             </button>
-
-            <button
-              onClick={toggleLanguage}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-sm font-medium ${theme === 'dark' ? 'bg-slate-900/50 border-slate-700 text-slate-300 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-            >
-              <Globe className="w-4 h-4" />
-              {lang === 'ar' ? 'English' : 'العربية'}
-            </button>
+            <button onClick={toggleLanguage} className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium"><Globe size={16} /> {lang === 'ar' ? 'English' : 'العربية'}</button>
           </div>
         </div>
       </nav>
 
-      {/* Main Content with New Structure */}
-      <main className="container mx-auto px-6 py-12 relative z-10 font-[family-name:var(--font-tajawal)]">
-
-        {/* Hero & Central Search Section */}
+      {/* Main Layout */}
+      <main className="container mx-auto px-6 py-12 relative z-10">
+        {/* Hero Search */}
         <div className="flex flex-col items-center justify-center mb-16 space-y-8">
           <div className="text-center max-w-2xl">
-            <h1 className={`text-5xl font-extrabold mb-4 tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-              {t.heroTitle} <span className="text-medical-teal">{t.heroTitleSuffix}</span>
-            </h1>
-            <p className={`text-lg ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-              {t.heroDesc}
-            </p>
+            <h1 className={`text-5xl font-extrabold mb-4 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{t.heroTitle} <span className="text-medical-teal">{t.heroTitleSuffix}</span></h1>
+            <p className={`text-lg ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{t.heroDesc}</p>
           </div>
-
-          {/* Large Centered Search Bar */}
           <div className="w-full max-w-3xl relative group">
-            <input
-              type="text"
-              placeholder={t.searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full px-8 py-5 rounded-full text-lg shadow-2xl outline-none border-2 transition-all ${theme === 'dark'
-                  ? 'bg-slate-900/80 border-slate-700 focus:border-medical-teal text-white placeholder-slate-500 shadow-teal-900/20'
-                  : 'bg-white border-slate-200 focus:border-medical-teal text-slate-900 placeholder-slate-400 shadow-slate-200'
-                }`}
-            />
+            <input type="text" placeholder={t.searchPlaceholder} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full px-8 py-5 rounded-full text-lg shadow-2xl outline-none border-2 transition-all ${theme === 'dark' ? 'bg-slate-900/80 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`} />
             <Search className={`absolute top-6 w-6 h-6 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'} ${lang === 'ar' ? 'left-6' : 'right-6'}`} />
           </div>
-
-          {/* Category Filter Pills - Centered */}
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-wrap gap-3 justify-center">
             {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${selectedCategory === cat
-                    ? 'bg-medical-teal text-white shadow-lg shadow-teal-500/30 transform scale-105'
-                    : theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                {cat === 'All' ? t.allCategories : cat}
-              </button>
+              <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${selectedCategory === cat ? 'bg-medical-teal text-white' : (theme === 'dark' ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600')}`}>{cat === 'All' ? t.allCategories : cat}</button>
             ))}
           </div>
         </div>
 
-        {/* Static Grid Layout (Fixed Hierarchy) */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className={`h-96 rounded-2xl animate-pulse ${theme === 'dark' ? 'bg-slate-900/50' : 'bg-slate-200'}`} />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="p-8 text-center rounded-2xl bg-rose-500/10 border border-rose-500/20">
-            <p className="text-rose-500">{error}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredMedicines.map((med) => (
-              <div
-                key={med.id}
-                className={`group flex flex-col h-[420px] rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-2xl ${theme === 'dark'
-                    ? 'bg-slate-900/40 backdrop-blur-md border-white/10 hover:border-medical-teal/50'
-                    : 'bg-white border-slate-100 shadow-lg hover:border-teal-100'
-                  }`}
-              >
-                {/* 1. Image at Top (Fixed Height) - USING STANDARD IMG TAG AS REQUESTED */}
-                <div className={`h-48 w-full p-6 flex items-center justify-center ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
-                  <img
-                    src={med.image_url || 'https://via.placeholder.com/300x200?text=Medicine'}
-                    alt={getLocalizedName(med)}
-                    className="h-full w-full object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Medicine';
-                      e.currentTarget.onerror = null;
-                    }}
-                  />
-                </div>
-
-                {/* 2. Content Body */}
-                <div className="p-5 flex-1 flex flex-col">
-                  <h3 className={`text-lg font-bold mb-1 line-clamp-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                    {getLocalizedName(med)}
-                  </h3>
-                  <p className={`text-xs mb-3 line-clamp-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {getLocalizedIngredient(med)}
-                  </p>
-
-                  <div className="mt-auto space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-xl font-mono font-bold ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                        {t.currency}{med.price}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded bg-slate-100/10 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
-                        {med.dosage}
-                      </span>
-                    </div>
-
-                    {/* 3. View Details Button */}
-                    <button
-                      onClick={() => handleMedicineClick(med)}
-                      className="w-full py-2.5 rounded-xl bg-medical-teal text-white font-bold text-sm shadow-lg shadow-teal-500/20 hover:bg-teal-600 active:scale-95 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      {t.viewDetails}
-                    </button>
+        {/* Static Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          {filteredMedicines.map((med) => (
+            <div key={med.id} className={`group flex flex-col h-[420px] rounded-2xl overflow-hidden border transition-all hover:shadow-2xl ${theme === 'dark' ? 'bg-slate-900/40 border-white/10 hover:border-medical-teal/50' : 'bg-white border-slate-100 shadow-lg'}`}>
+              <div className={`h-48 w-full p-6 flex items-center justify-center ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
+                <img src={med.image_url || PLACEHOLDER_IMG} alt={getLocalizedName(med)} className="h-full w-full object-contain drop-shadow-lg transition-transform group-hover:scale-110" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMG; }} />
+              </div>
+              <div className="p-5 flex-1 flex flex-col">
+                <h3 className={`text-lg font-bold mb-1 line-clamp-1 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{getLocalizedName(med)}</h3>
+                <p className={`text-xs mb-3 line-clamp-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{getLocalizedIngredient(med)}</p>
+                <div className="mt-auto space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xl font-mono font-bold ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>{med.price} {t.currency}</span>
+                    <span className="text-xs px-2 py-1 rounded bg-slate-100/10 opacity-70">{med.dosage}</span>
                   </div>
+                  <button onClick={() => handleMedicineClick(med)} className="w-full py-2.5 rounded-xl bg-medical-teal text-white font-bold text-sm shadow-lg hover:bg-teal-600 flex items-center justify-center gap-2">
+                    <Eye size={16} /> {t.viewDetails}
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
       </main>
 
-      {/* Cart & Chat Components */}
+      {/* Professional Slide-over Cart */}
       <AnimatePresence>
         {cartOpen && (
           <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setCartOpen(false)}
-              className="fixed inset-0 bg-black z-50 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ x: lang === 'ar' ? -320 : 320 }}
-              animate={{ x: 0 }}
-              exit={{ x: lang === 'ar' ? -320 : 320 }}
-              className={`fixed top-0 bottom-0 ${lang === 'ar' ? 'left-0' : 'right-0'} w-96 z-50 shadow-2xl overflow-y-auto ${theme === 'dark' ? 'bg-slate-900 border-r border-white/10' : 'bg-white border-l border-slate-200'}`}
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-8">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} exit={{ opacity: 0 }} onClick={() => setCartOpen(false)} className="fixed inset-0 bg-black z-50 backdrop-blur-sm" />
+            <motion.div initial={{ x: lang === 'ar' ? -400 : 400 }} animate={{ x: 0 }} exit={{ x: lang === 'ar' ? -400 : 400 }} className={`fixed top-0 bottom-0 ${lang === 'ar' ? 'left-0' : 'right-0'} w-full sm:w-[450px] z-[60] shadow-2xl flex flex-col ${theme === 'dark' ? 'bg-slate-900/95 border-r border-white/10' : 'bg-white/95 border-l border-slate-200'} backdrop-blur-xl`}>
+              <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-medical-teal/20 text-medical-teal"><ShoppingBag size={24} /></div>
                   <h2 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{t.cartTitle}</h2>
-                  <button onClick={() => setCartOpen(false)}><X className="w-6 h-6 text-slate-500" /></button>
                 </div>
-                {interactionReport?.hasConflict && (
-                  <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm">
-                    <strong className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4" /> {t.cartInteractionWarning}</strong>
-                    <ul className="list-disc list-inside space-y-1">
-                      {interactionReport.conflicts.map((c, i) => <li key={i}>{c}</li>)}
-                    </ul>
-                  </div>
-                )}
+                <button onClick={() => setCartOpen(false)} className="p-2 rounded-full hover:bg-slate-500/20"><X size={24} /></button>
+              </div>
+
+              {interactionReport?.hasConflict && (
+                <div className="mx-6 mt-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm animate-pulse">
+                  <strong className="flex items-center gap-2 mb-2"><AlertTriangle size={16} /> {t.cartInteractionWarning}</strong>
+                  <ul className="list-disc list-inside space-y-1 text-xs opacity-90">{interactionReport.conflicts.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {cart.length === 0 ? (
-                  <p className="text-slate-400 text-center py-8">{t.cartEmpty}</p>
-                ) : (
-                  <div className="space-y-4">
-                    {cart.map((item, idx) => (
-                      <div key={idx} className={`flex items-center gap-4 p-3 rounded-xl border ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
-                        <img src={item.image_url || ''} className="w-12 h-12 rounded-lg object-contain bg-white/10" />
-                        <div className="flex-1">
-                          <h4 className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{getLocalizedName(item)}</h4>
-                          <p className="text-xs text-slate-500">{t.currency}{item.price}</p>
-                        </div>
-                        <button onClick={() => removeFromCart(idx)} className="p-2 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    ))}
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                    <ShoppingCart size={48} className="mb-4" />
+                    <p>{t.cartEmpty}</p>
                   </div>
+                ) : (
+                  cart.map((item) => (
+                    <div key={item.id} className={`flex gap-4 p-4 rounded-2xl border transition-all hover:scale-[1.02] ${theme === 'dark' ? 'bg-slate-800/50 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                      <img src={item.image_url || PLACEHOLDER_IMG} className="w-20 h-20 rounded-xl object-contain bg-white p-2" onError={(e) => { e.currentTarget.src = PLACEHOLDER_IMG; }} />
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <h4 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{getLocalizedName(item)}</h4>
+                          <p className="text-xs opacity-60 mt-1">{getLocalizedIngredient(item)}</p>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className={`font-mono font-bold ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>{item.price} {t.currency}</span>
+                          <div className="flex items-center gap-3 bg-slate-500/10 rounded-lg p-1">
+                            <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white/20 rounded"><Minus size={14} /></button>
+                            <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
+                            <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white/20 rounded"><Plus size={14} /></button>
+                          </div>
+                        </div>
+                      </div>
+                      <button onClick={() => removeFromCart(item.id)} className="self-start p-2 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
+                    </div>
+                  ))
                 )}
               </div>
+
+              {cart.length > 0 && (
+                <div className={`p-6 border-t ${theme === 'dark' ? 'border-white/10 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+                  <div className="flex items-center justify-between mb-6 text-lg">
+                    <span className="opacity-70">{t.total}</span>
+                    <span className={`font-mono font-bold text-2xl ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>{cartTotal.toFixed(2)} {t.currency}</span>
+                  </div>
+                  <button className="w-full py-4 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-bold text-lg shadow-lg shadow-teal-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                    {t.checkout} <CreditCard size={20} />
+                  </button>
+                </div>
+              )}
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {/* Bot FAB */}
+      {/* Bot */}
       <div className={`fixed bottom-6 ${lang === 'ar' ? 'left-6' : 'right-6'} z-40 flex flex-col items-end gap-4`}>
         <AnimatePresence>
           {chatOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className={`w-80 md:w-96 h-[500px] rounded-2xl shadow-2xl flex flex-col overflow-hidden border ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
-            >
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className={`w-80 md:w-96 h-[500px] rounded-2xl shadow-2xl flex flex-col overflow-hidden border ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
               <div className="p-4 bg-medical-teal flex items-center justify-between text-white">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-full bg-white/20"><MessageSquare className="w-4 h-4" /></div>
-                  <span className="font-bold">{t.botName}</span>
-                </div>
-                <button onClick={() => setChatOpen(false)}><X className="w-5 h-5" /></button>
+                <div className="flex items-center gap-2"><div className="p-2 rounded-full bg-white/20"><MessageSquare size={16} /></div><span className="font-bold">{t.botName}</span></div>
+                <button onClick={() => setChatOpen(false)}><X size={20} /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.sender === 'user' ? 'bg-medical-teal text-white rounded-br-none' : (theme === 'dark' ? 'bg-slate-800 text-slate-200 rounded-bl-none' : 'bg-slate-100 text-slate-800 rounded-bl-none')}`}>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
+                {messages.map((msg, i) => (<div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.sender === 'user' ? 'bg-medical-teal text-white rounded-br-none' : 'bg-slate-600 text-white rounded-bl-none'}`}>{msg.text}</div></div>))}
                 <div ref={chatEndRef} />
               </div>
-              <div className={`p-4 border-t ${theme === 'dark' ? 'border-white/10' : 'border-slate-100'}`}>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={inputMsg}
-                    onChange={(e) => setInputMsg(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder={t.chatPlaceholder}
-                    className={`flex-1 px-4 py-2 rounded-full text-sm outline-none border transition-colors ${theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-medical-teal' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-medical-teal'}`}
-                  />
-                  <button onClick={handleSendMessage} className="p-2 rounded-full bg-medical-teal text-white hover:bg-teal-500"><Plus className="w-5 h-5 rotate-90" /></button>
-                </div>
-              </div>
+              <div className="p-4 border-t border-white/10 flex gap-2"><input type="text" value={inputMsg} onChange={(e) => setInputMsg(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder={t.chatPlaceholder} className="flex-1 px-4 py-2 rounded-full text-sm outline-none bg-slate-500/10" /><button onClick={handleSendMessage} className="p-2 rounded-full bg-medical-teal text-white"><Plus size={20} className="rotate-90" /></button></div>
             </motion.div>
           )}
         </AnimatePresence>
-        <button
-          onClick={() => setChatOpen(!chatOpen)}
-          className="w-14 h-14 rounded-full bg-medical-teal shadow-lg shadow-teal-500/30 flex items-center justify-center text-white hover:scale-105 transition-transform"
-        >
-          {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
-        </button>
+        <button onClick={() => setChatOpen(!chatOpen)} className="w-14 h-14 rounded-full bg-medical-teal shadow-lg flex items-center justify-center text-white hover:scale-105 transition-transform">{chatOpen ? <X size={24} /> : <MessageSquare size={24} />}</button>
       </div>
 
-      {/* Modal */}
+      {/* Detail Modal */}
       <AnimatePresence>
         {selectedMedicine && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeModal}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity"
-            />
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                className={`w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden pointer-events-auto relative ${theme === 'dark' ? 'bg-slate-900 border border-white/10' : 'bg-white'} ${lang === 'ar' ? 'text-right' : 'text-left'}`}
-              >
-                <div className={`relative h-48 bg-gradient-to-l from-teal-900/40 to-slate-900 flex flex-col justify-end p-8`}>
-                  <div className={`absolute top-4 ${lang === 'ar' ? 'left-4' : 'right-4'}`}>
-                    <button onClick={closeModal} className="p-2 rounded-full bg-black/20 hover:bg-white/10 text-white transition-colors">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <h2 className="text-4xl font-bold filter drop-shadow-lg mb-2 text-white">{getLocalizedName(selectedMedicine)}</h2>
-                  <p className="text-teal-200/80 font-medium flex items-center gap-2">
-                    <Pill className="w-4 h-4" />
-                    {getLocalizedIngredient(selectedMedicine)}
-                  </p>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div onClick={closeModal} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className={`relative w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden ${theme === 'dark' ? 'bg-slate-900 border border-white/10' : 'bg-white'}`}>
+              <div className="relative h-48 bg-gradient-to-l from-teal-900/40 to-slate-900 p-8 flex flex-col justify-end">
+                <button onClick={closeModal} className="absolute top-4 right-4 p-2 rounded-full bg-black/20 text-white"><X size={20} /></button>
+                <h2 className="text-3xl font-bold text-white">{getLocalizedName(selectedMedicine)}</h2>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="flex justify-between items-center bg-slate-500/5 p-4 rounded-xl">
+                  <div><span className="text-xs uppercase tracking-wider opacity-60">{t.price}</span><p className="text-2xl font-mono font-bold text-emerald-500">{selectedMedicine.price} {t.currency}</p></div>
+                  <button onClick={() => { addToCart(selectedMedicine); closeModal(); }} className="px-6 py-3 bg-medical-teal text-white rounded-xl font-bold hover:bg-teal-600 flex items-center gap-2"><ShoppingCart size={20} /> {t.addToCart}</button>
                 </div>
-
-                <div className="p-8">
-                  <div className={`grid grid-cols-2 gap-8 mb-8 border-b pb-8 ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'}`}>
-                    <div><h4 className="text-xs text-slate-500 font-bold mb-2">{t.dosage}</h4><p className={`text-lg ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{selectedMedicine.dosage}</p></div>
-                    <div><h4 className="text-xs text-slate-500 font-bold mb-2">{t.price}</h4><p className="text-emerald-400 text-lg font-mono" dir="ltr">{t.currency}{selectedMedicine.price}</p></div>
-                    <div className="col-span-2"><h4 className="text-xs text-slate-500 font-bold mb-2">{t.contraindications}</h4><p className={`leading-relaxed p-4 rounded-xl border text-sm ${theme === 'dark' ? 'bg-slate-950/50 border-white/5 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>{selectedMedicine.contraindications || t.noneListed}</p></div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <button onClick={() => { addToCart(selectedMedicine); closeModal(); }} className="flex-1 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 rounded-xl font-bold flex items-center justify-center gap-2">
-                      <ShoppingCart className="w-5 h-5" /> {t.addToCart}
-                    </button>
-                    {!safetyResult && !checkingSafety && (
-                      <button onClick={handleCheckSafety} className="flex-[2] py-3 bg-medical-teal text-white hover:bg-teal-600 rounded-xl font-bold shadow-lg shadow-teal-500/25 flex items-center justify-center gap-2">
-                        <ShieldCheck className="w-5 h-5" /> {t.checkSafetyBtn}
-                      </button>
-                    )}
-                  </div>
-
-                  {checkingSafety && <div className="text-center py-4 text-medical-teal animate-pulse">{t.scanning}</div>}
-
-                  {safetyResult && (
-                    <div className={`mt-6 p-4 rounded-xl border ${safetyResult.isSafe ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
-                      <div className="flex items-center gap-2 font-bold mb-2">
-                        {safetyResult.isSafe ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-                        {safetyResult.isSafe ? t.safeTitle : t.dangerTitle}
-                      </div>
-                      <p className="text-sm opacity-90">{safetyResult.isSafe ? t.safeDesc : t.dangerDesc}</p>
-                    </div>
-                  )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl border border-dashed border-slate-500/30"><h4 className="text-xs font-bold opacity-60 mb-1">{t.dosage}</h4><p>{selectedMedicine.dosage}</p></div>
+                  <div className="p-4 rounded-xl border border-dashed border-slate-500/30"><h4 className="text-xs font-bold opacity-60 mb-1">{t.contraindications}</h4><p className="text-sm">{selectedMedicine.contraindications}</p></div>
                 </div>
-              </motion.div>
-            </div>
-          </>
+                <button onClick={handleCheckSafety} className="w-full py-4 rounded-xl border-2 border-medical-teal text-medical-teal font-bold hover:bg-medical-teal hover:text-white transition-colors flex items-center justify-center gap-2"><ShieldCheck size={20} /> {t.checkSafetyBtn}</button>
+                {safetyResult && <div className={`p-4 rounded-xl text-center font-bold ${safetyResult.isSafe ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>{safetyResult.isSafe ? t.safeDesc : t.dangerDesc}</div>}
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
-
-      <div className="fixed inset-0 pointer-events-none z-[-1]">
-        <div className={`absolute top-[-10%] ${lang === 'ar' ? 'right-[-10%]' : 'left-[-10%]'} w-[500px] h-[500px] rounded-full blur-[120px] ${theme === 'dark' ? 'bg-teal-500/5' : 'bg-teal-500/10'}`} />
-        <div className={`absolute bottom-[-10%] ${lang === 'ar' ? 'left-[-10%]' : 'right-[-10%]'} w-[600px] h-[600px] rounded-full blur-[150px] ${theme === 'dark' ? 'bg-indigo-600/5' : 'bg-indigo-600/10'}`} />
-      </div>
     </div>
   );
 }
