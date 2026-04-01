@@ -294,49 +294,41 @@ export default function Home() {
 
   // --- Upgrade: Gemini AI Chatbot Logic ---
   const handleSendMessage = async () => {
-    if (!inputMsg.trim()) return;
     const userText = inputMsg;
     setMessages(prev => [...prev, { text: userText, sender: 'user' }]);
     setInputMsg('');
     setIsBotTyping(true);
 
     try {
-      // Prepare context from medicines
-      const medContext = medicines.map(m =>
-        `- ${m.name_en} (${m.name_ar}): Price ${m.price} EGP, Dosage: ${m.dosage}, Contraindications: ${m.contraindications}`
-      ).join('\n');
-
-      const systemPrompt = `
-            You are OplizBot, a helpful AI pharmacist assistant for Opliz Pharmacy.
-            Your current language is: ${lang === 'ar' ? 'Arabic' : 'English'}.
-            Answer the user's question based ONLY on the following available medicines list:\n\n${medContext}\n\n
-            If the user asks about a medicine not in this list, politely say you don't have information about it.
-            Always end your response with a safety disclaimer: "Please consult a doctor before taking any medication" (translated to Arabic if speaking Arabic).
-            Keep your answer concise and helpful.
-        `;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: systemPrompt + "\nUser Query: " + userText }]
-          }]
-        })
+          messages: [
+            ...messages.map(m => ({
+              role: m.sender === 'user' ? 'user' : 'assistant',
+              content: m.text,
+            })),
+            { role: 'user', content: userText },
+          ],
+          userId: null,
+        }),
       });
 
       const data = await response.json();
-      const botReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || (lang === 'ar' ? "عذراً، حدث خطأ في النظام." : "Sorry, a system error occurred.");
+      const botReply = data.message || (lang === 'ar' ? 'عذراً، حدث خطأ' : 'Sorry, an error occurred');
       setMessages(prev => [...prev, { text: botReply, sender: 'bot' }]);
 
     } catch (error) {
-      console.error("Gemini API Error:", error);
-      setMessages(prev => [...prev, { text: lang === 'ar' ? "عذراً، لا يمكنني الاتصال بالخادم حالياً." : "Sorry, I cannot connect to the server right now.", sender: 'bot' }]);
+      console.error('Chat Error:', error);
+      setMessages(prev => [...prev, {
+        text: lang === 'ar' ? 'عذراً، لا يمكنني الاتصال بالخادم حالياً' : 'Sorry, I cannot connect to the server',
+        sender: 'bot'
+      }]);
     } finally {
       setIsBotTyping(false);
     }
   };
-
 
   // Localization Helpers
   const getLocalizedName = (med: DBMedicine) => lang === 'ar' ? (med.name_ar || med.name_en) : med.name_en;
