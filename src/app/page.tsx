@@ -355,7 +355,7 @@ export default function Home() {
     } catch { } finally { setCheckingSafety(false); }
   };
 
-  const PLACEHOLDER_IMG = 'https://via.placeholder.com/300x200?text=Opliz+Medicine';
+  const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=200&fit=crop';
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-white' : 'bg-slate-50 text-slate-900'} ${lang === 'ar' ? 'font-[family-name:var(--font-tajawal)]' : 'font-[family-name:var(--font-inter)]'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
