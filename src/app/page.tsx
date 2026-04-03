@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import OplizLogo from '@/components/OplizLogo';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -361,27 +361,30 @@ export default function Home() {
     <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-white' : 'bg-slate-50 text-slate-900'} ${lang === 'ar' ? 'font-[family-name:var(--font-tajawal)]' : 'font-[family-name:var(--font-inter)]'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
       {/* Navbar */}
-      <nav className={`sticky top-0 z-40 w-full border-b backdrop-blur-md ${theme === 'dark' ? 'border-white/5 bg-slate-950/90' : 'border-slate-200 bg-white/90'}`}>
+      <nav className={`sticky top-0 z-40 w-full border-b backdrop-blur-xl ${theme === 'dark' ? 'border-white/5 bg-slate-950/80' : 'border-slate-200/80 bg-white/80'}`}>
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-4">
-              <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border ${theme === 'dark' ? 'bg-slate-900 border-teal-500/30' : 'bg-white border-teal-500/20'}`}>
-                <Image src="/logo.png" alt="Opliz" width={40} height={40} className="object-contain p-0.5" />
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className={`relative rounded-xl p-1.5 transition-all duration-300 group-hover:scale-105 ${theme === 'dark' ? 'bg-gradient-to-br from-teal-500/10 to-emerald-500/10 ring-1 ring-teal-500/20' : 'bg-gradient-to-br from-teal-50 to-emerald-50 ring-1 ring-teal-200/50 shadow-sm'}`}>
+                <OplizLogo size={36} theme={theme} animated />
               </div>
-              <span className={`text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-l ${theme === 'dark' ? 'from-white to-slate-400' : 'from-slate-900 to-slate-600'}`}>
-                {t.appTitle}<span className="text-medical-teal">{t.appTitleSuffix}</span>
-              </span>
+              <div className="flex flex-col">
+                <span className={`text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r ${theme === 'dark' ? 'from-white via-slate-200 to-slate-400' : 'from-slate-900 via-slate-700 to-slate-500'}`}>
+                  {t.appTitle}<span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-emerald-400">{t.appTitleSuffix}</span>
+                </span>
+                <span className={`text-[9px] font-semibold uppercase tracking-[0.2em] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Pharmacy Platform</span>
+              </div>
             </Link>
-            <button onClick={toggleTheme} className={clsx("hidden md:flex p-2 rounded-full", theme === 'dark' ? "bg-white/10 text-yellow-400" : "bg-slate-200 text-slate-700")}>{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}</button>
+            <button onClick={toggleTheme} className={clsx("hidden md:flex p-2.5 rounded-xl transition-all duration-200", theme === 'dark' ? "bg-white/5 text-yellow-400 hover:bg-white/10 ring-1 ring-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200 ring-1 ring-slate-200")}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button onClick={() => setCartOpen(true)} className="relative p-3 rounded-full hover:bg-slate-500/10">
-              <ShoppingCart className={theme === 'dark' ? "text-white" : "text-slate-900"} />
-              {cart.length > 0 && <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-medical-teal text-white text-xs font-bold rounded-full">{cart.length}</span>}
-              {interactionReport?.hasConflict && <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-rose-500 text-white text-xs font-bold rounded-full animate-ping" />}
+          <div className="flex items-center gap-3">
+            <button onClick={() => setCartOpen(true)} className={`relative p-3 rounded-xl transition-all duration-200 ${theme === 'dark' ? 'hover:bg-white/5 ring-1 ring-transparent hover:ring-white/10' : 'hover:bg-slate-100 ring-1 ring-transparent hover:ring-slate-200'}`}>
+              <ShoppingCart size={20} className={theme === 'dark' ? "text-white" : "text-slate-900"} />
+              {cart.length > 0 && <span className="absolute -top-0.5 -right-0.5 w-5 h-5 flex items-center justify-center bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-[10px] font-bold rounded-full shadow-lg shadow-teal-500/30">{cart.length}</span>}
+              {interactionReport?.hasConflict && <span className="absolute -top-0.5 -right-0.5 w-5 h-5 flex items-center justify-center bg-rose-500 text-white text-xs font-bold rounded-full animate-ping" />}
             </button>
-            <button onClick={toggleLanguage} className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium"><Globe size={16} /> {lang === 'ar' ? 'English' : 'العربية'}</button>
+            <button onClick={toggleLanguage} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${theme === 'dark' ? 'bg-white/5 ring-1 ring-white/10 hover:bg-white/10 text-white' : 'bg-slate-100 ring-1 ring-slate-200 hover:bg-slate-200 text-slate-700'}`}><Globe size={15} /> {lang === 'ar' ? 'EN' : 'عر'}</button>
           </div>
         </div>
       </nav>
@@ -391,7 +394,12 @@ export default function Home() {
         {/* Hero Search */}
         <div className="flex flex-col items-center justify-center mb-16 space-y-8">
           <div className="text-center max-w-2xl">
-            <h1 className={`text-5xl font-extrabold mb-4 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{t.heroTitle} <span className="text-medical-teal">{t.heroTitleSuffix}</span></h1>
+            <div className="flex justify-center mb-6">
+              <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-gradient-to-br from-teal-500/10 to-emerald-500/5 ring-1 ring-teal-500/20' : 'bg-gradient-to-br from-teal-50 to-emerald-50 ring-1 ring-teal-200/50 shadow-lg shadow-teal-500/10'}`}>
+                <OplizLogo size={64} theme={theme} animated />
+              </div>
+            </div>
+            <h1 className={`text-5xl font-extrabold mb-4 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{t.heroTitle} <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-emerald-400">{t.heroTitleSuffix}</span></h1>
             <p className={`text-lg ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{t.heroDesc}</p>
           </div>
           <div className="w-full max-w-3xl relative group">
@@ -502,9 +510,17 @@ export default function Home() {
         <AnimatePresence>
           {chatOpen && (
             <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className={`w-80 md:w-96 h-[500px] rounded-2xl shadow-2xl flex flex-col overflow-hidden border ${theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
-              <div className="p-4 bg-medical-teal flex items-center justify-between text-white">
-                <div className="flex items-center gap-2"><div className="p-2 rounded-full bg-white/20"><MessageSquare size={16} /></div><span className="font-bold">{t.botName}</span></div>
-                <button onClick={() => setChatOpen(false)}><X size={20} /></button>
+              <div className="p-4 bg-gradient-to-r from-teal-600 to-emerald-500 flex items-center justify-between text-white">
+                <div className="flex items-center gap-3">
+                  <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <OplizLogo size={24} theme="dark" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm leading-tight">{t.botName}</span>
+                    <span className="text-[10px] text-white/70 font-medium">Online</span>
+                  </div>
+                </div>
+                <button onClick={() => setChatOpen(false)} className="p-1 rounded-lg hover:bg-white/20 transition-colors"><X size={18} /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((msg, i) => (<div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.sender === 'user' ? 'bg-medical-teal text-white rounded-br-none' : 'bg-slate-600 text-white rounded-bl-none'}`}>{msg.text}</div></div>))}
@@ -515,7 +531,7 @@ export default function Home() {
             </motion.div>
           )}
         </AnimatePresence>
-        <button onClick={() => setChatOpen(!chatOpen)} className="w-14 h-14 rounded-full bg-medical-teal shadow-lg flex items-center justify-center text-white hover:scale-105 transition-transform">{chatOpen ? <X size={24} /> : <MessageSquare size={24} />}</button>
+        <button onClick={() => setChatOpen(!chatOpen)} className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 shadow-lg shadow-teal-500/30 flex items-center justify-center text-white hover:scale-105 hover:shadow-xl hover:shadow-teal-500/40 transition-all duration-300">{chatOpen ? <X size={24} /> : <MessageSquare size={24} />}</button>
       </div>
 
       {/* Detail Modal */}
@@ -544,6 +560,68 @@ export default function Home() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Footer */}
+      <footer className={`relative z-10 mt-20 border-t ${theme === 'dark' ? 'border-white/5 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}`}>
+        <div className="container mx-auto px-6 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {/* Brand */}
+            <div className="flex flex-col gap-4">
+              <Link href="/" className="flex items-center gap-3">
+                <div className={`rounded-xl p-1.5 ${theme === 'dark' ? 'bg-gradient-to-br from-teal-500/10 to-emerald-500/10 ring-1 ring-teal-500/20' : 'bg-gradient-to-br from-teal-50 to-emerald-50 ring-1 ring-teal-200/50'}`}>
+                  <OplizLogo size={32} theme={theme} />
+                </div>
+                <div className="flex flex-col">
+                  <span className={`text-lg font-extrabold tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    {t.appTitle}<span className="text-medical-teal">{t.appTitleSuffix}</span>
+                  </span>
+                  <span className={`text-[9px] font-semibold uppercase tracking-[0.2em] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Pharmacy Platform</span>
+                </div>
+              </Link>
+              <p className={`text-sm leading-relaxed max-w-xs ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>
+                {t.heroDesc}
+              </p>
+            </div>
+
+            {/* Quick Links */}
+            <div className="flex flex-col gap-4">
+              <h3 className={`text-sm font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                {lang === 'ar' ? 'روابط سريعة' : 'Quick Links'}
+              </h3>
+              <div className="flex flex-col gap-2">
+                {[lang === 'ar' ? 'الرئيسية' : 'Home', lang === 'ar' ? 'الأدوية' : 'Medicines', lang === 'ar' ? 'التحليل الذكي' : 'AI Analysis', lang === 'ar' ? 'تواصل معنا' : 'Contact Us'].map((link) => (
+                  <a key={link} href="#" className={`text-sm transition-colors duration-200 ${theme === 'dark' ? 'text-slate-500 hover:text-teal-400' : 'text-slate-500 hover:text-teal-600'}`}>{link}</a>
+                ))}
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div className="flex flex-col gap-4">
+              <h3 className={`text-sm font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                {lang === 'ar' ? 'تواصل معنا' : 'Contact'}
+              </h3>
+              <div className="flex flex-col gap-2">
+                <span className={`text-sm ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>support@opliz.com</span>
+                <span className={`text-sm ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>+20 123 456 7890</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className={`mt-12 pt-8 border-t flex flex-col md:flex-row items-center justify-between gap-4 ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
+            <p className={`text-xs ${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>
+              © {new Date().getFullYear()} Opliz AI Pharmacy. {lang === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] uppercase tracking-wider font-semibold ${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>
+                {lang === 'ar' ? 'مدعوم بـ' : 'Powered by'}
+              </span>
+              <OplizLogo size={16} theme={theme} />
+              <span className={`text-[10px] font-bold ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'}`}>AI Engine</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
